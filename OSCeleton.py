@@ -267,6 +267,7 @@ class OSCeleton:
         self.server.addMsgHandler("/joint", self.joint_callback)
         self.server.addMsgHandler("/orient", self.orient_callback)
         self.server.addMsgHandler("default", self.do_nothing_callback)
+        self.lost_hand = False
     
     def new_user_callback(self, path, types, args, src):
         """Create user"""
@@ -275,13 +276,15 @@ class OSCeleton:
         
     def lost_user_callback(self, path, types, args, src):
         """Remove user"""
-        print "User %d has been lost" % args[0]
         try:
+            print "User %d has been lost" % args[0]
             del self._users[args[0]]
             self.lostUsers.append(args[0])
             del self.users[args[0]]
         except KeyError:
             pass
+        except IndexError: # in case of hand mode there's no user
+            self.lost_hand = True
             
     def do_nothing_callback(self, path, types, args, src):
         """Does absolutely nothing"""
@@ -292,6 +295,7 @@ class OSCeleton:
         
     def joint_callback(self, path, types, args, src):
         """Add joint to a users skeleton"""
+        
         #add new user if they haven't been added already
         if args[1] not in self._users:
             self._users[args[1]] = Skeleton(args[1])
@@ -350,5 +354,10 @@ class OSCeleton:
         
     def run(self):
         """Wait for and catch event"""
+        if self.lost_hand:
+            self.lost_hand = False
+            return False
+
         self.server.handle_request()
+        return True
 
